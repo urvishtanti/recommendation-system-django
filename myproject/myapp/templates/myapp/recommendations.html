@@ -1,0 +1,33 @@
+<h2>Top 5 Recommended Restaurants</h2>
+  <ul>
+    {% for restaurant in top_restaurants %}
+      <li>{{ restaurant.name }} ({{ restaurant.rating }})</li>
+    {% endfor %}
+  </ul>
+
+  <h2>Other Recommended Restaurants</h2>
+  <ul>
+    {% for restaurant in page_obj %}
+      <li>{{ restaurant.name }} ({{ restaurant.rating }})</li>
+    {% empty %}
+      <li>No restaurants found.</li>
+    {% endfor %}
+  </ul>
+
+  <div class="pagination">
+    <span class="step-links">
+        {% if page_obj.has_previous %}
+            <a href="?page=1">&laquo; first</a>
+            <a href="?page={{ page_obj.previous_page_number }}">previous</a>
+        {% endif %}
+
+        <span class="current-page">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}">next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+        {% endif %}
+    </span>
+  </div>

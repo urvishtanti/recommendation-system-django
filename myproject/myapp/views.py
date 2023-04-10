@@ -1,0 +1,109 @@
+import array
+from django.contrib.auth import authenticate, login
+from django.shortcuts import redirect, render
+from django.http import HttpResponse
+from .models import Restaurent,Cusine
+from django.contrib.auth.models import User
+from django.contrib import messages
+import pandas as pd
+import numpy as np
+import operator
+
+# Similarity
+from sklearn.metrics.pairwise import cosine_similarity
+# current_user = request.user
+# print(current_user.username)
+def my_app(request):
+    restaurents = Restaurent.objects.all()[:5]
+    cusines = Cusine.objects.all()[:5]
+    return render(request, 'myapp/index.html', {'restaurents': restaurents, 'cusines': cusines})
+
+def login_func(request):
+    if request.method == 'POST':
+        userID = request.POST.get('userid')
+        password = request.POST.get('password')
+        user = authenticate(request, username=userID, password=password)
+        if user is not None:
+            login(request, user)
+            return redirect('/index/') # redirect to home page after successful login
+        else:
+            # handle invalid login credentials
+            return redirect('/login/')
+    return render(request, 'myapp/login.html')
+
+def registration_view(request):
+    if request.method == 'POST':
+        # get the form data from the POST request
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        confirm_password = request.POST.get('confirm_password')
+        # check if the username and email are unique
+        if User.objects.filter(username=username).exists():
+            messages.error(request, 'Username already exists')
+            return redirect('register')
+        if User.objects.filter(email=email).exists():
+            messages.error(request, 'Username already exists')
+            return redirect('register')
+
+        # create a new user object
+        user = User.objects.create_user(username=username, email=email, password=password)
+        print(user)
+
+        # log the user in and redirect to the home page
+        login(request, user)
+        messages.success(request, 'You have registered successfully')
+        return redirect('/index')
+    else:
+        return render(request, 'myapp/signup.html')
+    
+def recommend(request,number_of_similar_items=130):
+    ratings = Restaurent.objects.all().order_by('userID', 'placeID').values()
+    ratings = pd.DataFrame.from_records(ratings)
+    current_user = request.user
+
+    print(current_user.username)
+    # ratings=pd.read_csv('restaurents_visited.csv')
+    # ratings=ratings.sort_values(by=['userID','placeID'])
+    ratings.head()
+    df=ratings
+    matrix = df.pivot_table(index='placeID', columns='userID', values='total_rating')
+    matrix.head()
+    matrix_norm = matrix.subtract(matrix.mean(axis=1), axis = 0)
+    matrix_norm.head()
+    item_similarity_cosine = cosine_similarity(matrix_norm.fillna(0))
+    item_similarity_cosine_matrix=pd.DataFrame(item_similarity_cosine)
+    item_similarity_cosine_matrix.head()
+    item_similarity_cosine_matrix.replace(0, np.nan, inplace=True)
+    item_similarity_cosine_matrix.columns = matrix_norm.index
+    item_similarity_cosine_matrix['placeID'] = matrix_norm.index
+    item_similarity_cosine_matrix = item_similarity_cosine_matrix.set_index('placeID')
+    item_similarity_cosine_matrix.head()
+    
+    picked_userid_notvisited = pd.DataFrame(matrix_norm[current_user.username].isna()).reset_index()
+    picked_userid_notvisited = picked_userid_notvisited[picked_userid_notvisited[current_user.username]==True]['placeID'].values.tolist()
+    picked_userid_visited = pd.DataFrame(matrix_norm[current_user.username].dropna(axis=0, how='all')\
+                            .sort_values(ascending=False))\
+                            .reset_index()\
+                            .rename(columns={current_user.username:'rating'})
+    rating_prediction ={} 
+    for picked_restraunt in picked_userid_notvisited: 
+        picked_restraunt_similarity_score = item_similarity_cosine_matrix[[picked_restraunt]].reset_index().rename(columns={picked_restraunt:'similarity_score'})
+        picked_userid_visited_similarity = pd.merge(left=picked_userid_visited, 
+                                                    right=picked_restraunt_similarity_score, 
+                                                    on='placeID', 
+                                                    how='inner')\
+                                            .sort_values('similarity_score', ascending=False)[:number_of_similar_items]
+        predicted_rating = round(np.average(picked_userid_visited_similarity['rating'], 
+                                            weights=picked_userid_visited_similarity['similarity_score']), 6)
+        rating_prediction[picked_restraunt] = predicted_rating 
+    key = pd.DataFrame.from_dict(rating_prediction,orient='index').sort_values(by=0, ascending=False).dropna()[0].keys().tolist()
+    TestArray = []
+    for i in range(len(key)):
+        str = Cusine.objects.filter(placeID=key[i]).values()
+        if not str:
+            TestArray.append(key[i]) 
+        else:
+            TestArray.append(str) 
+    print(TestArray)
+    return render(request, 'myapp/index.html', {'value': TestArray})
