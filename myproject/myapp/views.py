@@ -110,7 +110,7 @@ def recommend(request,number_of_similar_items=130):
         else:
             TestArray.append(str) 
     print(TestArray)
-    paginator = Paginator(TestArray, 6)
+    paginator = Paginator(TestArray, 5)
     try:
         data = paginator.page(page)
     except PageNotAnInteger:
@@ -118,3 +118,7 @@ def recommend(request,number_of_similar_items=130):
     except EmptyPage:
         data = paginator.page(paginator.num_pages)
     return render(request,'myapp/recommendation.html',{'value':data})
+
+def addRating(request):
+
+    return render(request,'myapp/addrating.html')

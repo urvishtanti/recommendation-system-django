@@ -23,6 +23,6 @@ urlpatterns = [
     path('login/', views.login_func, name='login'),
     path('register/', views.registration_view, name='register'),
     # path('recommend/', views.recommend, name='register'),
-    #path('recommend/', views.recommend2, name='recommend'),
+    path('addrating/', views.addRating, name='addrating'),
 
 ]
