@@ -8,6 +8,8 @@ from django.contrib import messages
 import pandas as pd
 import numpy as np
 import operator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
 
 # Similarity
 from sklearn.metrics.pairwise import cosine_similarity
@@ -25,7 +27,7 @@ def login_func(request):
         user = authenticate(request, username=userID, password=password)
         if user is not None:
             login(request, user)
-            return redirect('/index/') # redirect to home page after successful login
+            return redirect('/recommend/') # redirect to home page after successful login
         else:
             # handle invalid login credentials
             return redirect('/login/')
@@ -53,11 +55,13 @@ def registration_view(request):
         # log the user in and redirect to the home page
         login(request, user)
         messages.success(request, 'You have registered successfully')
-        return redirect('/index')
+        return redirect('/recommend')
     else:
         return render(request, 'myapp/signup.html')
-    
+
+
 def recommend(request,number_of_similar_items=130):
+    page = request.GET.get('page', 1)
     ratings = Restaurent.objects.all().order_by('userID', 'placeID').values()
     ratings = pd.DataFrame.from_records(ratings)
     current_user = request.user
@@ -106,4 +110,11 @@ def recommend(request,number_of_similar_items=130):
         else:
             TestArray.append(str) 
     print(TestArray)
-    return render(request, 'myapp/index.html', {'value': TestArray})
+    paginator = Paginator(TestArray, 6)
+    try:
+        data = paginator.page(page)
+    except PageNotAnInteger:
+        data = paginator.page(1)
+    except EmptyPage:
+        data = paginator.page(paginator.num_pages)
+    return render(request,'myapp/recommendation.html',{'value':data})
