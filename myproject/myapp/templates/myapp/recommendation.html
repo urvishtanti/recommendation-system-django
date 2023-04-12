@@ -82,7 +82,20 @@
     {% else %}
       <li class="disabled page-item"><span class="page-link">PREVIOUS</span></li>
     {% endif %}
-    <li class=" page-item"><div  style="width: 130px;"></div></li>
+    
+
+    {% for i in value.paginator.page_range %}
+    {% if value.number == i %}
+    <li class="active page-item"><span class="page-link">{{ i }} <span class="sr-only">(current)</span></span></li>
+    {% endif %}
+  {%if forloop.last %}
+<span class="page-link">of</span>
+  <li class="active page-item" ><span class="page-link">{{i}}</span></li>
+  {% endif %}
+
+    {% endfor %}
+   
+   
     <!-- {% for i in value.paginator.page_range %}
       {% if value.number == i %}
         <li class="active page-item"><span class="page-link">{{ i }} <span class="sr-only">(current)</span></span></li>
