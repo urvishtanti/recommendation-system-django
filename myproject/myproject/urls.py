@@ -20,9 +20,9 @@ from myapp import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('recommend/', views.recommend, name='recommend'),
-    path('login/', views.login_func, name='login'),
+    path('login/', views.login_f, name='login'),
     path('register/', views.registration_view, name='register'),
-    # path('recommend/', views.recommend, name='register'),
-    path('addrating/', views.addRating, name='addrating'),
+    path('addrating/',views.addrating, name='addrating'),
+    path('submitrating/', views.submitrating, name='submitrating'),
     path('logout/', views.logout_view, name='logout'),
 ]

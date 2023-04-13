@@ -1,7 +1,7 @@
 import array
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from .models import Restaurent,Cusine
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -13,25 +13,39 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 # Similarity
 from sklearn.metrics.pairwise import cosine_similarity
-# current_user = request.user
-# print(current_user.username)
+
 def my_app(request):
     restaurents = Restaurent.objects.all()[:5]
     cusines = Cusine.objects.all()[:5]
     return render(request, 'myapp/index.html', {'restaurents': restaurents, 'cusines': cusines})
 
-def login_func(request):
-    if request.method == 'POST':
-        userID = request.POST.get('userid')
-        password = request.POST.get('password')
-        user = authenticate(request, username=userID, password=password)
-        if user is not None:
-            login(request, user)
-            return redirect('/recommend/') # redirect to home page after successful login
-        else:
-            # handle invalid login credentials
-            return redirect('/login/')
+
+
+def login_decor(pass_function):
+    def login_func(request):
+        if request.user.is_authenticated:
+            print("User is authenticated")
+            if str(request.get_full_path()) == '/login/':
+                print("Logging out")
+                logout(request)
+            return pass_function(request)
+        elif request.method == 'POST':
+            userID = request.POST.get('userid')
+            password = request.POST.get('password')
+            user = authenticate(request, username=userID, password=password)
+            if user is not None:
+                login(request, user)
+                return redirect('/recommend/') # redirect to home page after successful login
+            else:
+                # handle invalid login credentials
+                return redirect('/login/')
+        return render(request, 'myapp/login.html')
+    return login_func 
+
+@login_decor
+def login_f(request):
     return render(request, 'myapp/login.html')
+
 
 def registration_view(request):
     if request.method == 'POST':
@@ -59,7 +73,7 @@ def registration_view(request):
     else:
         return render(request, 'myapp/signup.html')
 
-
+@login_decor
 def recommend(request,number_of_similar_items=130):
     page = request.GET.get('page', 1)
     TestArray = []
@@ -103,18 +117,16 @@ def recommend(request,number_of_similar_items=130):
                                                 weights=picked_userid_visited_similarity['similarity_score']), 6)
             rating_prediction[picked_restraunt] = predicted_rating 
         key = pd.DataFrame.from_dict(rating_prediction,orient='index').sort_values(by=0, ascending=False).dropna()[0].keys().tolist()
-       
+        print(key)
         if len(key) == 0:
             TestArray =  new_recommend(request,TestArray,number_of_similar_items=130)
 
-        # TestArray = []
         for i in range(len(key)):
             str = Cusine.objects.filter(placeID=key[i]).values()
             if not str:
                 TestArray.append(key[i]) 
             else:
                 TestArray.append(str) 
-        # print(TestArray)
     paginator = Paginator(TestArray, 5)
     try:
         data = paginator.page(page)
@@ -138,8 +150,14 @@ def new_recommend(request,TestArray,number_of_similar_items=130):
     return TestArray
     
         
+@login_decor
+def addrating(request):
+    placeID =request.GET.get('placeID')
+    context ={'placeID': placeID}
+    return render(request,'myapp/addrating.html',context)
 
-def addRating(request):
+@login_decor
+def submitrating(request):
     if request.method=='POST':
         placeID = request.POST.get('placeID')
         rating = request.POST.get('rating')
@@ -149,10 +167,16 @@ def addRating(request):
         total_rating = int(rating) + int(food_rating) + int(service_rating)
         restaurant = Restaurent(userID = current_user,placeID = placeID, rating = rating, food_rating= food_rating, service_rating=service_rating, total_rating= total_rating )
         Restaurent.save(restaurant)
-    return render(request,'myapp/addrating.html')
-
+        return JsonResponse({'status': 'success', 'message': 'Ratings submitted successfully'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'})
+   # return render(request,'myapp/addrating.html')
 
 
 def logout_view(request):
     logout(request)
+    response = HttpResponse("You have been logged out.")
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'  # Prevent caching
+    response['Pragma'] = 'no-cache'  # Prevent caching in older browsers
+    response['Expires'] = '0'
     return redirect('/login')
+
