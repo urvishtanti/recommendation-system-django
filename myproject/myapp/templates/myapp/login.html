@@ -65,10 +65,14 @@ margin-top: -18px;
                         
                            <i class="fa fa-eye" aria-hidden="true" id="eye" onclick="toggle()"></i>
                            <div class="invalid-feedback">
-                            Please enter your Username
+                            Please enter your password
                            </div>
                           </div>
-                    
+                          {% if messages %}
+                          {% for message in messages %}
+                            <span class="alert alert" style="color: red; font-weight: bold;">{{ message }}</span>
+                          {% endfor %}
+                        {% endif %}
                          
                         </div>
                         

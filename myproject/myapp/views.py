@@ -37,7 +37,7 @@ def login_decor(pass_function):
                 login(request, user)
                 return redirect('/recommend/') # redirect to home page after successful login
             else:
-                # handle invalid login credentials
+                messages.error(request, 'Invalid Credentials')
                 return redirect('/login/')
         return render(request, 'myapp/login.html')
     return login_func 
@@ -68,7 +68,7 @@ def registration_view(request):
 
         # log the user in and redirect to the home page
         login(request, user)
-        messages.success(request, 'You have registered successfully')
+       
         return redirect('/recommend')
     else:
         return render(request, 'myapp/signup.html')
@@ -117,7 +117,8 @@ def recommend(request,number_of_similar_items=130):
                                                 weights=picked_userid_visited_similarity['similarity_score']), 6)
             rating_prediction[picked_restraunt] = predicted_rating 
         key = pd.DataFrame.from_dict(rating_prediction,orient='index').sort_values(by=0, ascending=False).dropna()[0].keys().tolist()
-        print(key)
+        #print(key)
+        print(rating_prediction)
         if len(key) == 0:
             TestArray =  new_recommend(request,TestArray,number_of_similar_items=130)
 
