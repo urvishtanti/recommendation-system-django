@@ -1,4 +1,6 @@
-  <html>
+{% load static%}
+
+ <html>
     <head>
       <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
       <meta http-equiv="Pragma" content="no-cache">
@@ -47,8 +49,8 @@
          
             <div style="width: 250px;">
                 <div class="card" >
-                    <img src="..." class="card-img-top" alt="...">
-                    <div class="card-body" style="height: 300px;">
+                    <img src="/static/images/food{{forloop.counter}}.jpg" class="card-img-top" alt="..." style="object-fit: fill; height: 150px; width: 150px;margin: auto;">
+                    <div class="card-body" style="height: 200px;">
                 {% if queryset.0.placeID %}
                 <h6 class="card-title">RESTAURANT</h6>
 
