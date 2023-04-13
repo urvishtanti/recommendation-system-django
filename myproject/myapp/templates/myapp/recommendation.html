@@ -22,7 +22,7 @@
                   <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 
                     <li class="nav-item">
-                        <button class="btn btn-danger btn-block" type="submit">Logout</button>
+                        <a class="btn btn-danger btn-block" type="submit" href="/logout">Logout</a>
                     </li>
                    
                  </ul>
@@ -38,7 +38,7 @@
             </div>
         </div>
 
-    <div class="row" style="margin-left: 8px;">
+    <div class="row" style="margin-left: 120px;">
         {% for queryset in  value%}
         {% if queryset %}
          
@@ -60,7 +60,7 @@
                         {{ item.cusine_type }}
                         {% if not forloop.last %} {% endif %}
                         {% endfor %}</p>
-                    <a href="{% url 'addrating'%}" class="btn btn-warning" style="position: absolute; bottom: 20px; margin-left: 40px;">Add Ratings</a>
+                    <a href="{% url 'addrating'  %}?placeID={{queryset.0.placeID}}" class="btn btn-warning" style="position: absolute; bottom: 20px; margin-left: 40px;">Add Ratings</a>
                 </div>
             </div>
        

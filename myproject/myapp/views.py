@@ -1,5 +1,5 @@
 import array
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
 from django.http import HttpResponse
 from .models import Restaurent,Cusine
@@ -62,54 +62,59 @@ def registration_view(request):
 
 def recommend(request,number_of_similar_items=130):
     page = request.GET.get('page', 1)
-    ratings = Restaurent.objects.all().order_by('userID', 'placeID').values()
-    ratings = pd.DataFrame.from_records(ratings)
-    current_user = request.user
-
-    print(current_user.username)
-    # ratings=pd.read_csv('restaurents_visited.csv')
-    # ratings=ratings.sort_values(by=['userID','placeID'])
-    ratings.head()
-    df=ratings
-    matrix = df.pivot_table(index='placeID', columns='userID', values='total_rating')
-    matrix.head()
-    matrix_norm = matrix.subtract(matrix.mean(axis=1), axis = 0)
-    matrix_norm.head()
-    item_similarity_cosine = cosine_similarity(matrix_norm.fillna(0))
-    item_similarity_cosine_matrix=pd.DataFrame(item_similarity_cosine)
-    item_similarity_cosine_matrix.head()
-    item_similarity_cosine_matrix.replace(0, np.nan, inplace=True)
-    item_similarity_cosine_matrix.columns = matrix_norm.index
-    item_similarity_cosine_matrix['placeID'] = matrix_norm.index
-    item_similarity_cosine_matrix = item_similarity_cosine_matrix.set_index('placeID')
-    item_similarity_cosine_matrix.head()
-    
-    picked_userid_notvisited = pd.DataFrame(matrix_norm[current_user.username].isna()).reset_index()
-    picked_userid_notvisited = picked_userid_notvisited[picked_userid_notvisited[current_user.username]==True]['placeID'].values.tolist()
-    picked_userid_visited = pd.DataFrame(matrix_norm[current_user.username].dropna(axis=0, how='all')\
-                            .sort_values(ascending=False))\
-                            .reset_index()\
-                            .rename(columns={current_user.username:'rating'})
-    rating_prediction ={} 
-    for picked_restraunt in picked_userid_notvisited: 
-        picked_restraunt_similarity_score = item_similarity_cosine_matrix[[picked_restraunt]].reset_index().rename(columns={picked_restraunt:'similarity_score'})
-        picked_userid_visited_similarity = pd.merge(left=picked_userid_visited, 
-                                                    right=picked_restraunt_similarity_score, 
-                                                    on='placeID', 
-                                                    how='inner')\
-                                            .sort_values('similarity_score', ascending=False)[:number_of_similar_items]
-        predicted_rating = round(np.average(picked_userid_visited_similarity['rating'], 
-                                            weights=picked_userid_visited_similarity['similarity_score']), 6)
-        rating_prediction[picked_restraunt] = predicted_rating 
-    key = pd.DataFrame.from_dict(rating_prediction,orient='index').sort_values(by=0, ascending=False).dropna()[0].keys().tolist()
     TestArray = []
-    for i in range(len(key)):
-        str = Cusine.objects.filter(placeID=key[i]).values()
-        if not str:
-            TestArray.append(key[i]) 
-        else:
-            TestArray.append(str) 
-    print(TestArray)
+
+    if not Restaurent.objects.filter(userID=request.user).exists():
+       TestArray =  new_recommend(request,TestArray,number_of_similar_items=130)
+    else:
+        ratings = Restaurent.objects.all().order_by('userID', 'placeID').values()
+        ratings = pd.DataFrame.from_records(ratings)
+        current_user = request.user
+        ratings.head()
+        df=ratings
+        matrix = df.pivot_table(index='placeID', columns='userID', values='total_rating')
+        matrix.head()
+        matrix_norm = matrix.subtract(matrix.mean(axis=1), axis = 0)
+        matrix_norm.head()
+        item_similarity_cosine = cosine_similarity(matrix_norm.fillna(0))
+        item_similarity_cosine_matrix=pd.DataFrame(item_similarity_cosine)
+        item_similarity_cosine_matrix.head()
+        item_similarity_cosine_matrix.replace(0, np.nan, inplace=True)
+        item_similarity_cosine_matrix.columns = matrix_norm.index
+        item_similarity_cosine_matrix['placeID'] = matrix_norm.index
+        item_similarity_cosine_matrix = item_similarity_cosine_matrix.set_index('placeID')
+        item_similarity_cosine_matrix.head()
+        
+        picked_userid_notvisited = pd.DataFrame(matrix_norm[current_user.username].isna()).reset_index()
+        picked_userid_notvisited = picked_userid_notvisited[picked_userid_notvisited[current_user.username]==True]['placeID'].values.tolist()
+        picked_userid_visited = pd.DataFrame(matrix_norm[current_user.username].dropna(axis=0, how='all')\
+                                .sort_values(ascending=False))\
+                                .reset_index()\
+                                .rename(columns={current_user.username:'rating'})
+        rating_prediction ={} 
+        for picked_restraunt in picked_userid_notvisited: 
+            picked_restraunt_similarity_score = item_similarity_cosine_matrix[[picked_restraunt]].reset_index().rename(columns={picked_restraunt:'similarity_score'})
+            picked_userid_visited_similarity = pd.merge(left=picked_userid_visited, 
+                                                        right=picked_restraunt_similarity_score, 
+                                                        on='placeID', 
+                                                        how='inner')\
+                                                .sort_values('similarity_score', ascending=False)[:number_of_similar_items]
+            predicted_rating = round(np.average(picked_userid_visited_similarity['rating'], 
+                                                weights=picked_userid_visited_similarity['similarity_score']), 6)
+            rating_prediction[picked_restraunt] = predicted_rating 
+        key = pd.DataFrame.from_dict(rating_prediction,orient='index').sort_values(by=0, ascending=False).dropna()[0].keys().tolist()
+       
+        if len(key) == 0:
+            TestArray =  new_recommend(request,TestArray,number_of_similar_items=130)
+
+        # TestArray = []
+        for i in range(len(key)):
+            str = Cusine.objects.filter(placeID=key[i]).values()
+            if not str:
+                TestArray.append(key[i]) 
+            else:
+                TestArray.append(str) 
+        # print(TestArray)
     paginator = Paginator(TestArray, 5)
     try:
         data = paginator.page(page)
@@ -119,6 +124,35 @@ def recommend(request,number_of_similar_items=130):
         data = paginator.page(paginator.num_pages)
     return render(request,'myapp/recommendation.html',{'value':data})
 
-def addRating(request):
+def new_recommend(request,TestArray,number_of_similar_items=130):
+    ratings = Restaurent.objects.all().order_by('total_rating', 'placeID').values()
+    ratings = pd.DataFrame.from_records(ratings)
+    key = ratings.sort_values(by='total_rating', ascending=False).dropna(subset=['total_rating'])['placeID'].tolist()
+    unique_key = list(set(key)) 
+    for i in range(len(unique_key)):
+        str = Cusine.objects.filter(placeID=unique_key[i]).values()
+        if not str:
+            TestArray.append(unique_key[i]) 
+        else:
+            TestArray.append(str)
+    return TestArray
+    
+        
 
+def addRating(request):
+    if request.method=='POST':
+        placeID = request.POST.get('placeID')
+        rating = request.POST.get('rating')
+        food_rating = request.POST.get('food_rating')
+        service_rating = request.POST.get('service_rating')
+        current_user = request.user
+        total_rating = int(rating) + int(food_rating) + int(service_rating)
+        restaurant = Restaurent(userID = current_user,placeID = placeID, rating = rating, food_rating= food_rating, service_rating=service_rating, total_rating= total_rating )
+        Restaurent.save(restaurant)
     return render(request,'myapp/addrating.html')
+
+
+
+def logout_view(request):
+    logout(request)
+    return redirect('/login')
